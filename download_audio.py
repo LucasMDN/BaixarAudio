@@ -10,31 +10,56 @@ musica_list = [
   {'tipo': 'audio', 'url': 'https://www.youtube.com/watch?v=4Oc6PTtcthA', 'prefixo': '_'}, 
 ]
 
+def ler_arquivo(caminho):
+    music = []
+    with open(caminho, 'r') as file:
+        music = file.readlines()
+        
+    return music
+        
+def converter_conteudo(lista):
+    #dados = [x.split(';') for x in lista]
+    dicionario = []
+    for iten in lista:
+        musica = iten.split(";")
+        dicionario.append({
+            "tipo": musica[0],
+            "url": musica[1],
+            "prefixo": musica[2]
+        })
+    return dicionario
+
 def download_audio(audio_url, prefixo=None):
-	try:
-		video = YouTube(audio_url)
-		time.sleep(3)
+    try:
+        # yt-dlp é mais compatível com as alterações recentes do YouTube
+        opcoes = {
+            'format': 'bestaudio/best',
+            'outtmpl': f'{prefixo or ""}%(title)s.%(ext)s',
+            'noplaylist': True,
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+        }
 
-		# Escolher o stream de áudio de melhor qualidade
-		stream = video.streams.filter(only_audio=True).first()
-
-		# Baixar o arquivo de áudio
-		stream.download(filename="musica.mp3") # ou .mp3 se preferir
-		print("Download concluído!")
-	except Exception as erro:
-		print(erro)
+        with yt_dlp.YoutubeDL(opcoes) as ydl:
+            ydl.download([audio_url])
+        print("Download concluído!")
+    except Exception as erro:
+        print(f"Erro ao baixar o áudio: {erro}")
 
 def download_playlist(playlist_url, prefixo=None):
-	playlist = Playlist(playlist_url)
-	for url in playlist:
-		yt = YouTube(url)
-		video = yt.streams.get_highest_resolution()
-		video.download(output_path='playlist', filename_prefix=prefixo)
+    playlist = Playlist(playlist_url)
+    for url in playlist:
+        yt = YouTube(url)
+        video = yt.streams.get_highest_resolution()
+        video.download(output_path='playlist', filename_prefix=prefixo)
 
 def download_video(video_url, prefixo=None):
-	yt = YouTube(video_url)
-	video = yt.streams.get_highest_resolution()
-	video.download(filename_prefix=prefixo)
+    yt = YouTube(video_url)
+    video = yt.streams.get_highest_resolution()
+    video.download(filename_prefix=prefixo)
 
 def baixar_musica(url):
   # Opções de download (salva o arquivo no formato de áudio)
@@ -84,15 +109,18 @@ def download_audio22(yt_url, prefixo=None):
         print(f"Erro ao tentar baixar o vídeo: {e}")
         
 if __name__ == '__main__':  
-	for index, url_dict in enumerate(musica_list):
-		print('Baixando (%s/%s) ... %s' % (index + 1, len(musica_list), url_dict['url']))
-		
-		if url_dict['tipo'] == 'audio':
-			download_audio(url_dict['url'], url_dict.get('prefixo'))
-		if url_dict['tipo'] == 'playlist':
-			download_playlist(url_dict['url'], url_dict.get('prefixo'))
-		if url_dict['tipo'] == 'video':
-			download_video(url_dict['url'], url_dict.get('prefixo'))
-		
-		print('  Finaizado a URL %s' % url_dict['url'])
+    musica_list = ler_arquivo('BaixarAudio/musicas.csv')
+    musica_list = converter_conteudo(musica_list)
+    
+    for index, url_dict in enumerate(musica_list):
+        print('Baixando (%s/%s) ... %s' % (index + 1, len(musica_list), url_dict['url']))
+        
+        if url_dict['tipo'] == 'audio':
+            download_audio(url_dict['url'], url_dict.get('prefixo'))
+        if url_dict['tipo'] == 'playlist':
+            download_playlist(url_dict['url'], url_dict.get('prefixo'))
+        if url_dict['tipo'] == 'video':
+            download_video(url_dict['url'], url_dict.get('prefixo'))
+        
+        print('  Finaizado a URL %s' % url_dict['url'])
  
