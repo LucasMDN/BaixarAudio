@@ -10,31 +10,40 @@ musica_list = [
   {'tipo': 'audio', 'url': 'https://www.youtube.com/watch?v=4Oc6PTtcthA', 'prefixo': '_'}, 
 ]
 
-def ler_arquivo(caminho):
-    music = []
-    with open(caminho, 'r') as file:
-        music = file.readlines()
-        
-    return music
-        
-def converter_conteudo(lista):
-    #dados = [x.split(';') for x in lista]
-    dicionario = []
-    for iten in lista:
-        musica = iten.split(";")
-        dicionario.append({
-            "tipo": musica[0],
-            "url": musica[1],
-            "prefixo": musica[2]
-        })
-    return dicionario
 
-def download_audio(audio_url, prefixo=None):
+def ler_arquivo(caminho):
+    musica = []
+    with open(caminho, 'r') as file:
+        musica = file.readlines()
+    
+    return musica
+        
+def converter_conteudo(lista_conteudo):
+    lista = []
+    for item in lista_conteudo:
+        item = item.strip()
+        dados = item.split(';')
+        lista.append({
+            'tipo': dados[0],
+            'url': dados[1],
+            'prefixo': dados[2]
+        })
+
+    return lista
+
+def cria_pastas():
+    diretorio = os.path.dirname(os.path.abspath(__file__))
+    for item in ['Musicas']:
+        pasta = os.path.join(diretorio, item)
+        os.makedirs(pasta, exist_ok=True)
+    return diretorio
+
+def download_audio(audio_url, destino, prefixo=None):
     try:
         # yt-dlp é mais compatível com as alterações recentes do YouTube
         opcoes = {
             'format': 'bestaudio/best',
-            'outtmpl': f'{prefixo or ""}%(title)s.%(ext)s',
+            'outtmpl': os.path.join(f'{destino}/{prefixo}', '%(title)s.%(ext)s'),  
             'noplaylist': True,
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
@@ -61,6 +70,7 @@ def download_video(video_url, prefixo=None):
     video = yt.streams.get_highest_resolution()
     video.download(filename_prefix=prefixo)
 
+'''
 def baixar_musica(url):
   # Opções de download (salva o arquivo no formato de áudio)
   opcoes = {
@@ -107,8 +117,11 @@ def download_audio22(yt_url, prefixo=None):
         print("Download concluído!")
     except Exception as e:
         print(f"Erro ao tentar baixar o vídeo: {e}")
-        
+'''
+
 if __name__ == '__main__':  
+    
+    caminho = cria_pastas()
     musica_list = ler_arquivo('BaixarAudio/musicas.csv')
     musica_list = converter_conteudo(musica_list)
     
@@ -116,11 +129,12 @@ if __name__ == '__main__':
         print('Baixando (%s/%s) ... %s' % (index + 1, len(musica_list), url_dict['url']))
         
         if url_dict['tipo'] == 'audio':
-            download_audio(url_dict['url'], url_dict.get('prefixo'))
+            download_audio(url_dict['url'], caminho, url_dict.get('prefixo'))
+        
         if url_dict['tipo'] == 'playlist':
             download_playlist(url_dict['url'], url_dict.get('prefixo'))
         if url_dict['tipo'] == 'video':
             download_video(url_dict['url'], url_dict.get('prefixo'))
         
+        
         print('  Finaizado a URL %s' % url_dict['url'])
- 
