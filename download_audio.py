@@ -6,10 +6,6 @@ import youtube_dl, yt_dlp
 
 os.environ['PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT'] = '1'
 
-musica_list = [
-  {'tipo': 'audio', 'url': 'https://www.youtube.com/watch?v=4Oc6PTtcthA', 'prefixo': '_'}, 
-]
-
 
 def ler_arquivo(caminho):
     musica = []
@@ -32,19 +28,37 @@ def converter_conteudo(lista_conteudo):
     return lista
 
 def cria_pastas():
-    diretorio = os.path.dirname(os.path.abspath(__file__))
-    for item in ['Musicas']:
-        pasta = os.path.join(diretorio, item)
-        os.makedirs(pasta, exist_ok=True)
-    return diretorio
+    try:
+        diretorio = os.path.dirname(os.path.abspath(__file__))
+        for item in ['Musicas', 'Videos', 'Playlist']:
+            pasta = os.path.join(diretorio, item)
+            os.makedirs(pasta, exist_ok=True)
+    except Exception as erro:
+        print('Não foi possível criar as pastas: %s', erro)
+
+def pegar_destino(tipo):
+    match tipo:
+        case 'audio':
+            return os.path.abspath('Musicas')
+        case 'video':
+            return os.path.abspath('Videos')
+        case 'playlist':
+            return os.path.abspath('Playlist')
+       
+
 
 def download_audio(audio_url, destino, prefixo=None):
     try:
+        
+        # Na minha cabeça isso ta estranho, se o usuário não tiver baixado vai dar erro
+        deno_path = os.path.join(os.environ['USERPROFILE'], '.deno', 'bin', 'deno.exe') 
+        
         # yt-dlp é mais compatível com as alterações recentes do YouTube
         opcoes = {
             'format': 'bestaudio/best',
-            'outtmpl': os.path.join(f'{destino}/{prefixo}', '%(title)s.%(ext)s'),  
+            'outtmpl':  f'{destino}/{prefixo}_%(title)s.%(ext)s',  
             'noplaylist': True,
+            'js_runtimes': {'deno': {'path': deno_path}},
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -121,20 +135,26 @@ def download_audio22(yt_url, prefixo=None):
 
 if __name__ == '__main__':  
     
-    caminho = cria_pastas()
-    musica_list = ler_arquivo('BaixarAudio/musicas.csv')
+    cria_pastas() 
+    musica_list = ler_arquivo('musicas.csv')
     musica_list = converter_conteudo(musica_list)
     
     for index, url_dict in enumerate(musica_list):
         print('Baixando (%s/%s) ... %s' % (index + 1, len(musica_list), url_dict['url']))
         
         if url_dict['tipo'] == 'audio':
+            caminho = pegar_destino(url_dict['tipo']) 
+            #Se eu chamar pegar_destino() a função aqui ela vai se repetir toda vez, se tiver 400 musica ele repete 400 vezes
+            # seria melhor deixar fixo antes do for loop?
             download_audio(url_dict['url'], caminho, url_dict.get('prefixo'))
         
         if url_dict['tipo'] == 'playlist':
-            download_playlist(url_dict['url'], url_dict.get('prefixo'))
+            caminho = pegar_destino(url_dict['tipo'])
+            download_playlist(url_dict['url'], caminho, url_dict.get('prefixo'))
+
         if url_dict['tipo'] == 'video':
-            download_video(url_dict['url'], url_dict.get('prefixo'))
+            caminho = pegar_destino(url_dict['tipo'])
+            download_video(url_dict['url'], caminho, url_dict.get('prefixo'))
         
         
         print('  Finaizado a URL %s' % url_dict['url'])
