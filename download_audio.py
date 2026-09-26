@@ -1,9 +1,4 @@
 import os
-import time
-from pytube import YouTube
-from pytube import Playlist
-import requests
-import youtube_dl
 import yt_dlp
 from re import compile
 
@@ -75,7 +70,6 @@ def converter_conteudo(lista_conteudo):
         print('\n')
 
     return arq_compativel
-
 
 def cria_pastas():
     try:
@@ -164,56 +158,6 @@ def download_video(video_url, destino):
             print("Download concluido!")
     except Exception as erro:
         print(f"Erro ao baixar o vídeo: {erro}")
-
-
-'''
-def baixar_musica(url):
-  # Opções de download (salva o arquivo no formato de áudio)
-  opcoes = {
-    'format': 'bestaudio/best', # Baixar a melhor qualidade de áudio
-    'extractaudio': True, # Extrair apenas o áudio
-    'audioquality': 1, # Qualidade do áudio (1 = melhor)
-    'outtmpl': '%(title)s.%(ext)s', # Nome do arquivo com o título do vídeo
-    'postprocessors': [{
-      'key': 'FFmpegAudioConvertor', # Usar FFmpeg para converter o arquivo para MP3
-      'preferredcodec': 'mp3',
-      'preferredquality': '192', # Qualidade do mp3
-    }],
-    'progress_hooks': [lambda d: print(d)] # Opcional: Para depuração (mostra o progresso)
-  }
-
-  # Criar o objeto yt-dlp com as opções
-  with yt_dlp.YoutubeDL(opcoes) as ydl:
-    ydl.download([url]) # Baixar o vídeo ou áudio
-
-def download_audio2(url, prefixo=None):
-    try:
-        yt = YouTube(url)
-        audio_stream = yt.streams.filter(only_audio=True).first()
-        audio_stream.download(output_path='.', filename='audio.mp3')
-        print("Download concluído!")
-    except Exception as e:
-        print(f"Ocorreu um erro: {e}")
-
-def download_audio22(yt_url, prefixo=None):
-    opcoes = {
-        'format': 'bestaudio/best',  # Baixar a melhor qualidade de áudio
-        'postprocessors': [{
-            'key': 'FFmpegAudioConvertor',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',  # Qualidade do mp3
-        }],
-        'outtmpl': '%(title)s.%(ext)s',  # Nome do arquivo
-        'force_generic_extractor': True,
-    }
-    
-    try:
-        with youtube_dl.YoutubeDL(opcoes) as ydl:
-            ydl.download([yt_url])
-        print("Download concluído!")
-    except Exception as e:
-        print(f"Erro ao tentar baixar o vídeo: {e}")
-'''
 
 if __name__ == '__main__':
     pastas = cria_pastas()
