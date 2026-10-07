@@ -6,11 +6,11 @@ os.environ['PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT'] = '1'
 
 
 def ler_arquivo(caminho):
-    musica = []
+    links = []
     with open(caminho, 'r') as file:
-        musica = file.readlines()
+        links = file.readlines()
 
-    return musica
+    return links
 
 
 def veirifar_conteudo(conteudo):
@@ -32,14 +32,27 @@ def veirifar_conteudo(conteudo):
         if not youtube_regex.search(url):
             return False
 
-        with yt_dlp.YoutubeDL({'quiet': True, 'skip_download': True, 'extract_flat': True}) as ydl:
+        opcoes = {
+            "quiet": True,
+            'skip_download': True,
+        }
+
+        if tipo in ["audio", "video"]:
+            opcoes["noplaylist"] = True
+        else:
+            opcoes["extract_flat"] = True
+            opcoes["playlist_items"] = "1:10" # Limita a 10 itens
+
+        with yt_dlp.YoutubeDL(opcoes) as ydl:
             info = ydl.extract_info(url, download=False)
-            if not info.get('extractor_key', '').startswith("Youtube"):
-                return False
+
+        if not info.get('extractor_key', '').startswith("Youtube"):
+            return False
 
         return True
 
-    except Exception:
+    except Exception as erro:
+        print(erro)
         return False
 
 
@@ -61,7 +74,7 @@ def converter_conteudo(lista_conteudo):
 
         else:
             url = '' if len(dados) <= 1 else dados[1]
-            arq_incompativel.append({'tip0': dados[0], 'url': url})
+            arq_incompativel.append({'tipo': dados[0], 'url': url})
 
     if arq_incompativel:
         print('Não foi possível baixar os links:')
@@ -73,14 +86,14 @@ def converter_conteudo(lista_conteudo):
 
 def cria_pastas():
     try:
-        diretorio = os.path.dirname(os.path.abspath(__file__))
+        diretorio = os.path.dirname('BaixarAudio')
         for item in ['Musicas', 'Videos', 'Playlist']:
             pasta = os.path.join(diretorio, item)
             os.makedirs(pasta, exist_ok=True)
         return True
 
     except Exception as erro:
-        print('Não foi possível criar as pastas: %s', erro)
+        print(f'Não foi possível criar as pastas: {erro}')
         return False
 
 
@@ -127,7 +140,7 @@ def download_playlist(playlist_url, destino):
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
-                'preferredquality': 192
+                'preferredquality': '192'
             }]
         }
 
@@ -136,7 +149,7 @@ def download_playlist(playlist_url, destino):
             print("Download concluído!")
 
     except Exception as erro:
-        print(f"Erro ao baixar o áudio: {erro}")
+        print(f"Erro ao baixar a playlist: {erro}")
 
 
 def download_video(video_url, destino):
@@ -148,8 +161,8 @@ def download_video(video_url, destino):
             'quiet': True,
             'postprocessors': [
                 {
-                    'key': 'FFmpegVideoConvertor',
-                    'preferedformat': 'mp4'
+                    'key': 'FFmpegVideoRemuxer',
+                    'preferredformat': 'mp4'
                 }]
         }
 
@@ -162,12 +175,12 @@ def download_video(video_url, destino):
 if __name__ == '__main__':
     pastas = cria_pastas()
     if pastas:
-        arquivo = ler_arquivo('musicas.csv')
-        musica_list = converter_conteudo(arquivo)
+        arquivo = ler_arquivo('links.csv')
+        links = converter_conteudo(arquivo)
 
-        for index, url_dict in enumerate(musica_list):
-            print('Baixando (%s/%s) ... %s' %
-                  (index + 1, len(musica_list), url_dict['url']))
+        for index, url_dict in enumerate(links):
+            print('Baixando (%s/%s) ... %s' % (index + 1,
+                                               len(links), url_dict['url']))
 
             if url_dict['tipo'] == 'audio':
                 caminho = pegar_destino(url_dict['tipo'])
