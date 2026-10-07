@@ -1,6 +1,9 @@
 import os
 import yt_dlp
-from re import compile
+import re
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
 
 os.environ['PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT'] = '1'
 
@@ -13,185 +16,164 @@ def ler_arquivo(caminho):
     return links
 
 
-def veirifar_conteudo(conteudo):
-    try:
-        tamanho_conteudo = len(conteudo)
-        if tamanho_conteudo != 2:
-            return False
+def Formato_csv_valdido(linha_csv):
+    return True if len(linha_csv) == 3 else False
 
-        tipo = conteudo[0]
-        if tipo not in ['audio', 'video', 'playlist']:
-            return False
 
-        url = conteudo[1]
-        if not url:
-            return False
+def tipo_suportado(tipo):
+    return True if tipo in ['audio', 'video', 'playlist'] else False
 
-        youtube_regex = compile(
-            r'(https?://)?(www\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)/')
-        if not youtube_regex.search(url):
-            return False
 
-        opcoes = {
-            "quiet": True,
-            'skip_download': True,
-        }
+def url_valida(url):
+    padrao = r'^https?://(www\.)?youtube\.com/watch\?v=[\w-]+'
+    return bool(url and re.search(padrao, url))
 
-        if tipo in ["audio", "video"]:
-            opcoes["noplaylist"] = True
-        else:
-            opcoes["extract_flat"] = True
-            opcoes["playlist_items"] = "1:10" # Limita a 10 itens
 
-        with yt_dlp.YoutubeDL(opcoes) as ydl:
-            info = ydl.extract_info(url, download=False)
-
-        if not info.get('extractor_key', '').startswith("Youtube"):
-            return False
-
-        return True
-
-    except Exception as erro:
-        print(erro)
+def veirifar_conteudo(dados):
+    if not Formato_csv_valdido(dados):
         return False
 
+    tipo = dados[0]
+    if not tipo_suportado(tipo):
+        return False
 
-def converter_conteudo(lista_conteudo):
+    url = dados[1]
+    if not url_valida(url):
+        return False
+
+    return True
+
+
+def criar_lista_com_todas_as_urls(caminho_arquivo):
+    lista_de_download = []
+    arquivo = ler_arquivo(caminho_arquivo)
+    for lista_de_informacoes in arquivo:
+        lista_de_informacoes = lista_de_informacoes.strip().split(";")
+
+        tipo = lista_de_informacoes[0]
+        url = lista_de_informacoes[1]
+        destino = lista_de_informacoes[2]
+
+        if tipo == "playlist":
+            urls_isoladas = obter_urls_da_playlist(url)
+            for url_isolada in urls_isoladas:
+                lista_de_download.append([
+                    tipo,
+                    url_isolada,
+                    destino
+                ])
+
+        else:
+            lista_de_download.append([
+                tipo,
+                url,
+                destino
+            ])
+
+    return lista_de_download
+
+
+def converter_lista_de_url_para_dicionario(lista_de_donwload):
     arq_compativel = []
     arq_incompativel = []
 
-    for item in lista_conteudo:
-        item = item.strip()
-        dados = item.split(';')
-
-        dados_corretos = veirifar_conteudo(dados)
+    for item in lista_de_donwload:
+        dados_corretos = veirifar_conteudo(item)
 
         if dados_corretos:
             arq_compativel.append({
-                'tipo': dados[0],
-                'url': dados[1]
+                'tipo': item[0],
+                'url': item[1],
+                'destino': item[2]
             })
 
         else:
-            url = '' if len(dados) <= 1 else dados[1]
-            arq_incompativel.append({'tipo': dados[0], 'url': url})
+            arq_incompativel.append([item[0], item[1]])
 
     if arq_incompativel:
         print('Não foi possível baixar os links:')
         for index, item in enumerate(arq_incompativel):
-            print(f"{index+1} -- {item['url']}")
-        print('\n')
+            print(f"{index+1} -- Tipo de Download: {item[0]} / Url: {item[1]}")
 
     return arq_compativel
 
-def cria_pastas():
+
+
+def obter_urls_da_playlist(url):
+    with yt_dlp.YoutubeDL({
+        "quiet": True,
+        "skip_download": True,
+        "extract_flat": True,    
+        "playlist_items": "1-10"
+    }) as ydl:
+        info = ydl.extract_info(url, download=False)
+        return [entrada["url"] for entrada in info["entries"]]
+
+
+def download(url, tipo, destino, index, tamanho_lista):
     try:
-        diretorio = os.path.dirname('BaixarAudio')
-        for item in ['Musicas', 'Videos', 'Playlist']:
-            pasta = os.path.join(diretorio, item)
-            os.makedirs(pasta, exist_ok=True)
-        return True
+        opcoes = config_download(tipo, destino)
 
-    except Exception as erro:
-        print(f'Não foi possível criar as pastas: {erro}')
-        return False
-
-
-def pegar_destino(tipo):
-    match tipo:
-        case 'audio':
-            return os.path.abspath('Musicas')
-        case 'video':
-            return os.path.abspath('Videos')
-        case 'playlist':
-            return os.path.abspath('Playlist')
-
-
-def download_audio(audio_url, destino):
-    try:
-        # yt-dlp é mais compatível com as alterações recentes do YouTube
-        opcoes = {
-            'format': 'bestaudio/best',
-            'outtmpl':  f'{destino}/%(title)s.%(ext)s',
-            'noplaylist': True,
-            'quiet': True,
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-        }
-        with yt_dlp.YoutubeDL(opcoes) as ydl:
-            ydl.download([audio_url])
-            print("Download concluído!")
-
-    except Exception as erro:
-        print(f"Erro ao baixar o áudio: {erro}")
-
-
-def download_playlist(playlist_url, destino):
-    try:
-        opcoes = {
-            'format': 'bestaudio/best',
-            'outtmpl': f'{destino}/%(title)s.%(ext)s',
-            'noplaylist': False,
-            'quiet': True,
-            'playlist_items': '1:10',  # Baixa do item 1 ao 10
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192'
-            }]
-        }
+        print(f"Baixando ({index+1}/{tamanho_lista}) --- {url}")
 
         with yt_dlp.YoutubeDL(opcoes) as ydl:
-            ydl.download([playlist_url])
-            print("Download concluído!")
-
-    except Exception as erro:
-        print(f"Erro ao baixar a playlist: {erro}")
+            #ydl.download([url])
+            print(f"Download número {index + 1} concluido!")
 
 
-def download_video(video_url, destino):
-    try:
-        opcoes = {
-            'format': 'bestvideo+bestaudio/best',
-            'outtmpl':  f'{destino}/%(title)s.%(ext)s',
-            'noplaylist': True,
-            'quiet': True,
-            'postprocessors': [
-                {
-                    'key': 'FFmpegVideoRemuxer',
-                    'preferredformat': 'mp4'
-                }]
-        }
 
-        with yt_dlp.YoutubeDL(opcoes) as ydl:
-            ydl.download([video_url])
-            print("Download concluido!")
     except Exception as erro:
         print(f"Erro ao baixar o vídeo: {erro}")
 
-if __name__ == '__main__':
-    pastas = cria_pastas()
-    if pastas:
-        arquivo = ler_arquivo('links.csv')
-        links = converter_conteudo(arquivo)
 
-        for index, url_dict in enumerate(links):
-            print('Baixando (%s/%s) ... %s' % (index + 1,
-                                               len(links), url_dict['url']))
+def config_download(tipo, destino):
+    
+    opcoes = {
+        "format": "bestvideo+bestaudio/best" if tipo == 'video' else "bestaudio/best",
+        "outtmpl": f"{destino}/%(title)s.%(ext)s",
+        "quiet": True,
+        "noplaylist": True
+    }
 
-            if url_dict['tipo'] == 'audio':
-                caminho = pegar_destino(url_dict['tipo'])
-                download_audio(url_dict['url'], caminho)
+    if tipo == 'video':
+        opcoes['postprocessors'] = [{
+            'key': 'FFmpegVideoRemuxer',
+            'preferedformat': 'mp4'
+        }]
 
-            if url_dict['tipo'] == 'playlist':
-                caminho = pegar_destino(url_dict['tipo'])
-                download_playlist(url_dict['url'], caminho)
+    else:
+        opcoes['postprocessors'] = [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192'
+        }]
 
-            if url_dict['tipo'] == 'video':
-                caminho = pegar_destino(url_dict['tipo'])
-                download_video(url_dict['url'], caminho)
+    return opcoes
 
-            print('Finaizado a URL %s' % url_dict['url'])
+
+def cria_lista_download(caminho_arquivo):
+    lista_completa_de_ownloads = criar_lista_com_todas_as_urls(caminho_arquivo)
+    dicionario_download = converter_lista_de_url_para_dicionario(lista_completa_de_ownloads)
+
+    return dicionario_download
+
+
+def chama_download(arquivo):
+    lista_links = cria_lista_download(arquivo)
+    tamanho_lista = len(lista_links)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        for index, dicionario_link in enumerate(lista_links):
+            executor.submit(
+                download,
+                dicionario_link["url"],                
+                dicionario_link["tipo"],
+                dicionario_link["destino"],
+                index,
+                tamanho_lista   
+            )
+    
+
+if __name__ == "__main__":
+    chama_download('links.csv')
+   
