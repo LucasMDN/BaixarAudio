@@ -4,8 +4,8 @@ from gui.frames import (
     player_da_url_selecionada, 
     salvar_link, 
     selecionar_local_amazenamento, 
-    selecionar_tipo_download, 
-    botao_de_download
+    botao_de_download,
+    tipo_de_download
 )
 
 
@@ -49,11 +49,20 @@ class App(ctk.CTk):
         
     
         # Lina 0
-        self.opcoes_frame = selecionar_tipo_download.TipoDeDownload(
+        
+
+        self.opcoes_frame = tipo_de_download.TipoDeDownload(
             self, 
             titulo = 'Opções de download', 
             valores = ['Áudio', 'Vídeo', 'Playlist']
-            )
+            )        
+
+
+        '''self.opcoes_frame = selecionar_tipo_download.TipoDeDownload(
+            self, 
+            titulo = 'Opções de download', 
+            valores = ['Áudio', 'Vídeo', 'Playlist']
+            )'''
         self.opcoes_frame.grid(row=0, column=0, padx=10, pady=(10,5), sticky='nsew')
         
         self.amazenamento_frame = selecionar_local_amazenamento.EscolhePastaDestino(

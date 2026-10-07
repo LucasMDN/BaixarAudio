@@ -44,48 +44,59 @@ def veirifar_conteudo(dados):
     return True
 
 
-def converter_conteudo(lista_conteudo):
+def criar_lista_com_todas_as_urls(caminho_arquivo):
+    lista_de_download = []
+    arquivo = ler_arquivo(caminho_arquivo)
+    for lista_de_informacoes in arquivo:
+        lista_de_informacoes = lista_de_informacoes.strip().split(";")
+
+        tipo = lista_de_informacoes[0]
+        url = lista_de_informacoes[1]
+        destino = lista_de_informacoes[2]
+
+        if tipo == "playlist":
+            urls_isoladas = obter_urls_da_playlist(url)
+            for url_isolada in urls_isoladas:
+                lista_de_download.append([
+                    tipo,
+                    url_isolada,
+                    destino
+                ])
+
+        else:
+            lista_de_download.append([
+                tipo,
+                url,
+                destino
+            ])
+
+    return lista_de_download
+
+
+def converter_lista_de_url_para_dicionario(lista_de_donwload):
     arq_compativel = []
     arq_incompativel = []
 
-    for item in lista_conteudo:
-        item = item.strip()
-        dados = item.split(';')
-
-        dados_corretos = veirifar_conteudo(dados)
+    for item in lista_de_donwload:
+        dados_corretos = veirifar_conteudo(item)
 
         if dados_corretos:
-            if dados[0] == "playlist":
-                url_dos_itens_da_playlist = obter_urls_da_playlist(dados[1])
-
-                for playlist_item_url in url_dos_itens_da_playlist:
-                    if url_valida(playlist_item_url):
-                        arq_compativel.append({
-                            'tipo': 'audio',
-                            'url': playlist_item_url,
-                            'destino': dados[2]
-                        })
-
-                    else:
-                        arq_incompativel.append([dados[0], playlist_item_url])
-
-            else:
-                arq_compativel.append({
-                    'tipo': dados[0],
-                    'url': dados[1],
-                    'destino': dados[2]
-                })
+            arq_compativel.append({
+                'tipo': item[0],
+                'url': item[1],
+                'destino': item[2]
+            })
 
         else:
-            arq_incompativel.append([dados[0], dados[1]])
+            arq_incompativel.append([item[0], item[1]])
 
     if arq_incompativel:
         print('Não foi possível baixar os links:')
         for index, item in enumerate(arq_incompativel):
             print(f"{index+1} -- Tipo de Download: {item[0]} / Url: {item[1]}")
-      
 
     return arq_compativel
+
 
 
 def obter_urls_da_playlist(url):
@@ -106,7 +117,7 @@ def download(url, tipo, destino, index, tamanho_lista):
         print(f"Baixando ({index+1}/{tamanho_lista}) --- {url}")
 
         with yt_dlp.YoutubeDL(opcoes) as ydl:
-            ydl.download([url])
+            #ydl.download([url])
             print(f"Download número {index + 1} concluido!")
 
 
@@ -121,11 +132,8 @@ def config_download(tipo, destino):
         "format": "bestvideo+bestaudio/best" if tipo == 'video' else "bestaudio/best",
         "outtmpl": f"{destino}/%(title)s.%(ext)s",
         "quiet": True,
-        "noplaylist": False if tipo == 'playlist' else True
+        "noplaylist": True
     }
-
-    if tipo == 'playlist':
-        opcoes['playlist_items'] = '1-10'
 
     if tipo == 'video':
         opcoes['postprocessors'] = [{
@@ -143,11 +151,11 @@ def config_download(tipo, destino):
     return opcoes
 
 
-def cria_lista_download(arquivo):
-    arquivo_csv = ler_arquivo(arquivo)
-    lista_links = converter_conteudo(arquivo_csv)
+def cria_lista_download(caminho_arquivo):
+    lista_completa_de_ownloads = criar_lista_com_todas_as_urls(caminho_arquivo)
+    dicionario_download = converter_lista_de_url_para_dicionario(lista_completa_de_ownloads)
 
-    return lista_links
+    return dicionario_download
 
 
 def chama_download(arquivo):
