@@ -84,7 +84,6 @@ def converter_conteudo(lista_conteudo):
 
     return arq_compativel
 
-
 def cria_pastas():
     try:
         diretorio = os.path.dirname('BaixarAudio')
@@ -172,7 +171,6 @@ def download_video(video_url, destino):
             print("Download concluido!")
     except Exception as erro:
         print(f"Erro ao baixar o vídeo: {erro}")
-
 
 if __name__ == '__main__':
     pastas = cria_pastas()
